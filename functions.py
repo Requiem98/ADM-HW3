@@ -9,6 +9,7 @@ import csv
 import collections
 import re
 import pandas as pd
+from tqdm import tqdm
 
 """
 ============================================================================================================
@@ -379,6 +380,34 @@ def str_to_datetime(d): #Convert a string into a datetime type
         start_datetime = datetime. strptime(d, "%b %d %Y").date()
         end_datetime = "NA"
         return[start_datetime, end_datetime]
+
+
+def make_dataframe(animePath = anime_tsv_path()):
+    
+    tsv_data = pd.read_csv(animePath[0], sep = "\t") 
+    
+    for path in tqdm(animePath[1:]):
+        tsv_data = tsv_data.append(pd.read_csv(path, sep ="\t"), ignore_index=True)
+        
+    return tsv_data
+
+
+def anime_tsv_path(control_parameter = 10):
+    anime_tsv_path = []
+    check = 0
+    index = 1
+
+    while(check < control_parameter):
+        try:
+            with open(f'./anime_tsv/anime_{index}.tsv', 'r') as file:
+                pass
+            anime_tsv_path.append(f'./anime_tsv/anime_{index}.tsv')
+        except:
+            check += 1
+        
+        index += 1
+        
+    return anime_tsv_path
 
 
 
