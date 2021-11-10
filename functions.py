@@ -369,20 +369,23 @@ def str_to_datetime(d): #Convert a string into a datetime type
     Output: list"""
     
     d= re.sub(r',', '', d) #first of all, remove the comma from the string
-
+    #print(d)
     if "to" in d:       
         date_time_list = d.split(" to ") #split the date of start and the date of end
-        [start,end] = date_time_list[:] 
+        [start,end] = date_time_list[:]
         
         #convert start and end into datetime 
-        start_datetime = datetime.strptime(start, "%b %d %Y").date()
-        end_datetime = datetime.strptime(end, "%b %d %Y").date()
+        start_datetime = datetime. strptime(start, "%b %d %Y").date()
+        if end=="?":
+            end_datetime = "NA"
+        else:   
+            end_datetime = datetime. strptime(end, "%b %d %Y").date()
         
         return [start_datetime,end_datetime]
     else:
         start_datetime = datetime. strptime(d, "%b %d %Y").date()
-        end_datetime = "NA"
-        return[start_datetime, end_datetime]
+        return[start_datetime, start_datetime]
+
 
 
 def anime_tsv_path(control_parameter = 10):
