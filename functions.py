@@ -119,6 +119,30 @@ def findUsers(string):
     return users_integer
 
 
+def str_to_datetime(d): #Convert a string into a datetime type
+    """Input: string,
+    Output: list"""
+    
+    d= re.sub(r',', '', d) #first of all, remove the comma from the string
+    #print(d)
+    if "to" in d:       
+        date_time_list = d.split(" to ") #split the date of start and the date of end
+        [start,end] = date_time_list[:]
+        
+        #convert start and end into datetime 
+        start_datetime = datetime. strptime(start, "%b %d %Y").date()
+        if end=="?":
+            end_datetime = None
+        else:   
+            end_datetime = datetime. strptime(end, "%b %d %Y").date()
+        
+        return [start_datetime,end_datetime]
+    else:
+        start_datetime = datetime. strptime(d, "%b %d %Y").date()
+        return[start_datetime, start_datetime]
+
+
+
 def tdForCharacters_Voices(tag):
     return tag.name == "td" and not tag.has_attr("width") and tag.has_attr("valign")
 
@@ -313,6 +337,16 @@ def getDataFromPage(pagePath):
     return finalDict
 
 
+"""
+============================================================================================================
+
+    Path functions
+
+============================================================================================================
+
+"""
+
+
 def animeFile_path():
     animePath = []
 
@@ -325,6 +359,34 @@ def animeFile_path():
             except:
                 pass
     return animePath
+
+
+def anime_tsv_path(control_parameter = 10):
+    anime_tsv_path = []
+    check = 0
+    index = 1
+
+    while(check < control_parameter):
+        try:
+            with open(f'./anime_tsv/anime_{index}.tsv', 'r') as file:
+                pass
+            anime_tsv_path.append(f'./anime_tsv/anime_{index}.tsv')
+        except:
+            check += 1
+        
+        index += 1
+        
+    return anime_tsv_path
+
+
+"""
+============================================================================================================
+
+    TSV functions
+
+============================================================================================================
+
+"""
 
 
 def write_anime_tsv(pagePath):
@@ -364,46 +426,15 @@ def write_all_anime_tsv(CPUs = multiprocessing.cpu_count()):
     
 
     
-def str_to_datetime(d): #Convert a string into a datetime type
-    """Input: string,
-    Output: list"""
-    
-    d= re.sub(r',', '', d) #first of all, remove the comma from the string
-    #print(d)
-    if "to" in d:       
-        date_time_list = d.split(" to ") #split the date of start and the date of end
-        [start,end] = date_time_list[:]
-        
-        #convert start and end into datetime 
-        start_datetime = datetime. strptime(start, "%b %d %Y").date()
-        if end=="?":
-            end_datetime = "NA"
-        else:   
-            end_datetime = datetime. strptime(end, "%b %d %Y").date()
-        
-        return [start_datetime,end_datetime]
-    else:
-        start_datetime = datetime. strptime(d, "%b %d %Y").date()
-        return[start_datetime, start_datetime]
+"""
+============================================================================================================
 
+    Miscellaneous functions
 
+============================================================================================================
 
-def anime_tsv_path(control_parameter = 10):
-    anime_tsv_path = []
-    check = 0
-    index = 1
+"""
 
-    while(check < control_parameter):
-        try:
-            with open(f'./anime_tsv/anime_{index}.tsv', 'r') as file:
-                pass
-            anime_tsv_path.append(f'./anime_tsv/anime_{index}.tsv')
-        except:
-            check += 1
-        
-        index += 1
-        
-    return anime_tsv_path
 
 
 def make_dataframe(animePath = anime_tsv_path()):
