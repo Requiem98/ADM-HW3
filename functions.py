@@ -10,6 +10,7 @@ import collections
 import re
 import pandas as pd
 from tqdm import tqdm
+from datetime import datetime
 
 """
 ============================================================================================================
@@ -361,35 +362,27 @@ def write_all_anime_tsv(CPUs = multiprocessing.cpu_count()):
 
     pool.map(lambda anime: write_anime_tsv(anime), anime);
     
+
+    
 def str_to_datetime(d): #Convert a string into a datetime type
     """Input: string,
     Output: list"""
     
     d= re.sub(r',', '', d) #first of all, remove the comma from the string
-    #print(d)
+
     if "to" in d:       
         date_time_list = d.split(" to ") #split the date of start and the date of end
         [start,end] = date_time_list[:] 
         
         #convert start and end into datetime 
-        start_datetime = datetime. strptime(start, "%b %d %Y").date()
-        end_datetime = datetime. strptime(end, "%b %d %Y").date()
+        start_datetime = datetime.strptime(start, "%b %d %Y").date()
+        end_datetime = datetime.strptime(end, "%b %d %Y").date()
         
         return [start_datetime,end_datetime]
     else:
         start_datetime = datetime. strptime(d, "%b %d %Y").date()
         end_datetime = "NA"
         return[start_datetime, end_datetime]
-
-
-def make_dataframe(animePath = anime_tsv_path()):
-    
-    tsv_data = pd.read_csv(animePath[0], sep = "\t") 
-    
-    for path in tqdm(animePath[1:]):
-        tsv_data = tsv_data.append(pd.read_csv(path, sep ="\t"), ignore_index=True)
-        
-    return tsv_data
 
 
 def anime_tsv_path(control_parameter = 10):
@@ -409,5 +402,14 @@ def anime_tsv_path(control_parameter = 10):
         
     return anime_tsv_path
 
+
+def make_dataframe(animePath = anime_tsv_path()):
+    
+    tsv_data = pd.read_csv(animePath[0], sep = "\t") 
+    
+    for path in tqdm(animePath[1:]):
+        tsv_data = tsv_data.append(pd.read_csv(path, sep ="\t"), ignore_index=True)
+        
+    return tsv_data
 
 
