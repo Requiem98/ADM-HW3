@@ -11,6 +11,7 @@ import re
 import pandas as pd
 from tqdm import tqdm
 from datetime import datetime
+import nltk
 
 """
 ============================================================================================================
@@ -75,6 +76,11 @@ def initGet(pageToGet = 400 ,CPUs = multiprocessing.cpu_count()):
     pool = ThreadPool(CPUs)
     pool.map(lambda num : get_listAnimePage(num, pages), numberOfPage)   
     pool.map(lambda page : get_urls_In_ListAnimePage(page, pages), pages)
+    
+    with open("./urls_anime.txt", "w") as file:
+        for url in pages:
+            file.write(url)
+            file.write("\n")
     
     return pages
 
