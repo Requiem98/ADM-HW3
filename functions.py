@@ -12,6 +12,8 @@ import pandas as pd
 from tqdm import tqdm
 from datetime import datetime
 import nltk
+import numpy as np
+import hashlib
 
 """
 ============================================================================================================
@@ -78,9 +80,10 @@ def initGet(pageToGet = 400 ,CPUs = multiprocessing.cpu_count()):
     pool.map(lambda page : get_urls_In_ListAnimePage(page, pages), pages)
     
     with open("./urls_anime.txt", "w") as file:
-        for url in pages:
-            file.write(url)
-            file.write("\n")
+        for page in tqdm(pages):
+            for url in page:
+                file.write(str(url))
+                file.write("\n")
     
     return pages
 
@@ -442,7 +445,7 @@ def write_all_anime_tsv(CPUs = multiprocessing.cpu_count()):
 
 def preprocessing(string):
     processed_string = []
-    stemmer = nltk.SnowballStemmer("english", ignore_stopwords=True)
+    stemmer = nltk.SnowballStemmer("english", ignore_stopwords=False)
     words = nltk.word_tokenize(string)
     new_words= [word for word in words if word.isalnum()]
     
@@ -456,18 +459,63 @@ def preprocessing(string):
 
 
 def make_inverted_index():
-    data = pd.read_csv("./database.csv", usecols=["Synopsis"])
+    data = pd.read_csv("./dataset.csv", usecols=["Synopsis"])
     dic = collections.defaultdict(list)
     
     for index, synops in tqdm(enumerate(data["Synopsis"].array)):
         if(isinstance(synops, str)):
             for word in preprocessing(synops):
-                dic[word].append(str(index+1))
+                dic[hashlib.sha256(word.encode()).hexdigest()].append(str(index+1))
     
     with open("./inverted_index.txt", "w") as file:
         for key in tqdm(dic):
-            file.write(key + ":" + ",".join(dic[key]))
+            file.write(str(key) + ":" + ",".join(dic[key]))
             file.write("\n")
+            
+
+"""
+============================================================================================================
+
+    Search engine functions
+
+============================================================================================================
+
+"""
+
+
+def search():
+    tsv_data = pd.read_csv("./dataset.csv")[["Name", "Synopsis", "url"]]
+    dic = read_dict()
+    stop = False
+    out_data = pd.DataFrame()
+    
+    while(not stop):
+        print("INSTRUCTIONS:\nto close the search engine:exit()\n\n")
+        
+        query = input("Search:")
+
+        if(query == "exit()"):
+            stop = True
+            print("\n\n\nstopping search engine...\n\n\n")
+        else:
+            query = list(preprocessing(query))
+            try:
+                indexs = []
+                for w in query:
+                    indexs.append(dic[str(hashlib.sha256(w.encode()).hexdigest())])
+
+                for index in indexs:
+                    for j in index:
+                        out_data = out_data.append(tsv_data.loc[int(j)-1], ignore_index=True)
+
+
+                display(out_data)
+                out_data.drop(out_data.index[:], inplace=True)
+                
+            except KeyError:
+                print("\nNo results\n\n")
+
+
 
     
 """
@@ -487,7 +535,26 @@ def make_dataframe(animePath = anime_tsv_path()):
     
     for path in tqdm(animePath[1:]):
         tsv_data = tsv_data.append(pd.read_csv(path, sep ="\t"), ignore_index=True)
+    
+    with open("./urls_anime.txt", "r") as file:
+        lines = file.read().splitlines()
+        tsv_data['url'] = np.resize(lines[:-12],len(tsv_data))
+
+    tsv_data.to_csv("./dataset.csv")
         
     return tsv_data
 
+
+def read_dict(path = "./inverted_index.txt"):
+    
+    dic = dict()
+    
+    with open(path, "r") as file:
+        lines = file.read().splitlines()
+        for line in lines:
+            key = line.split(":")[0]
+            values = line.split(":")[1].split(",")
+            dic[key] = values
+
+    return dic
 
