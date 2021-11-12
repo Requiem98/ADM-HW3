@@ -135,23 +135,46 @@ def str_to_datetime(d): #Convert a string into a datetime type
     """Input: string,
     Output: list"""
     
-    d= re.sub(r',', '', d) #first of all, remove the comma from the string
-    #print(d)
-    if "to" in d:       
-        date_time_list = d.split(" to ") #split the date of start and the date of end
-        [start,end] = date_time_list[:]
+    if d=="Not available":
+        return None
+    else: 
+        d = re.sub(r',', '', d) #first of all, remove the comma from the string
+        d = re.sub(r' ','',d) #remove also the space
+       
+        if "to" in d:       
+            date_time_list = d.split("to") #split the date of start and the date of end
+            [start,end] = date_time_list[:]
+            
+            if len(start)==4: #if is only year
+                start_datetime = datetime.strptime(start, "%Y").date()
+            elif len(start)==7: #if is year and month
+                start_datetime = datetime.strptime(start, "%b%Y").date()
+            else:
+                start_datetime = datetime.strptime(start, "%b%d%Y").date()
+                
+            
+            if "?" in end:
+                end_datetime = None
+                return [start_datetime,end_datetime]
+            else:
+                
+                if len(end)==4: #if is only year
+                    end_datetime = datetime.strptime(end, "%Y").date()
+                elif len(end)==7: #if is year and month
+                    end_datetime = datetime.strptime(end, "%b%Y").date()
+                else:
+                    end_datetime = datetime.strptime(end, "%b%d%Y").date()
         
-        #convert start and end into datetime 
-        start_datetime = datetime. strptime(start, "%b %d %Y").date()
-        if end=="?":
-            end_datetime = None
-        else:   
-            end_datetime = datetime. strptime(end, "%b %d %Y").date()
+                return [start_datetime,end_datetime]
         
-        return [start_datetime,end_datetime]
-    else:
-        start_datetime = datetime. strptime(d, "%b %d %Y").date()
-        return[start_datetime, start_datetime]
+        else: #there is only the date of starting
+            if len(d)==4: #if is only year
+                start_datetime = datetime.strptime(d, "%Y").date()
+            elif len(d)==7: #if is year and month
+                start_datetime = datetime.strptime(d, "%b%Y").date()
+            else:
+                start_datetime = datetime.strptime(d, "%b%d%Y").date()
+            return[start_datetime,start_datetime]
 
 
 
@@ -456,7 +479,7 @@ def preprocessing(string):
     for word in new_words:
         processed_string.append(stemmer.stem(word))
         
-    processed_string = set(processed_string)
+    #processed_string = set(processed_string)
     
     return processed_string
 
@@ -560,4 +583,38 @@ def read_dict(path = "./generic_datafile/inverted_index.txt"):
             dic[key] = values
 
     return dic
+
+
+def tfidf(i,j,d):
+    """
+    Input: (string, int, pandas.array)
+    Output: int
+    """
+    
+    ddad=[]
+
+    for doc in d:
+        if(isinstance(doc, str)):
+            ddad.append(f.preprocessing(doc)) 
+            #get all the sinonpsyses
+            #in a list of set
+    
+    i=f.preprocessing(i)
+    i=i.pop()
+    
+    n_ij=ddad[j].count(i)
+    
+   #tfij=n_ij/d_j where d_j=len(ddad[j])
+    
+    tfij=n_ij/len(ddad[j])
+    
+    idf_den=0
+
+    for d in ddad:
+        check=d.count(i)
+        if check>0:
+            idf_den+=1
+    idf=np.log10(len(ddad)/idf_den)
+    
+    return tfij*idf
 
