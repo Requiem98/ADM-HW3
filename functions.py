@@ -79,7 +79,7 @@ def initGet(pageToGet = 400 ,CPUs = multiprocessing.cpu_count()):
     pool.map(lambda num : get_listAnimePage(num, pages), numberOfPage)   
     pool.map(lambda page : get_urls_In_ListAnimePage(page, pages), pages)
     
-    with open("./urls_anime.txt", "w") as file:
+    with open("./generic_datafile/urls_anime.txt", "w") as file:
         for page in tqdm(pages):
             for url in page:
                 file.write(str(url))
@@ -459,7 +459,7 @@ def preprocessing(string):
 
 
 def make_inverted_index():
-    data = pd.read_csv("./dataset.csv", usecols=["Synopsis"])
+    data = pd.read_csv("./generic_datafile/dataset.csv", usecols=["Synopsis"])
     dic = collections.defaultdict(list)
     
     for index, synops in tqdm(enumerate(data["Synopsis"].array)):
@@ -467,7 +467,7 @@ def make_inverted_index():
             for word in preprocessing(synops):
                 dic[hashlib.sha256(word.encode()).hexdigest()].append(str(index+1))
     
-    with open("./inverted_index.txt", "w") as file:
+    with open("./generic_datafile/inverted_index.txt", "w") as file:
         for key in tqdm(dic):
             file.write(str(key) + ":" + ",".join(dic[key]))
             file.write("\n")
@@ -484,7 +484,7 @@ def make_inverted_index():
 
 
 def search():
-    tsv_data = pd.read_csv("./dataset.csv")[["Name", "Synopsis", "url"]]
+    tsv_data = pd.read_csv("./generic_datafile/dataset.csv")[["Name", "Synopsis", "url"]]
     dic = read_dict()
     stop = False
     out_data = pd.DataFrame()
@@ -536,16 +536,16 @@ def make_dataframe(animePath = anime_tsv_path()):
     for path in tqdm(animePath[1:]):
         tsv_data = tsv_data.append(pd.read_csv(path, sep ="\t"), ignore_index=True)
     
-    with open("./urls_anime.txt", "r") as file:
+    with open("./generic_datafile/urls_anime.txt", "r") as file:
         lines = file.read().splitlines()
         tsv_data['url'] = np.resize(lines[:-12],len(tsv_data))
 
-    tsv_data.to_csv("./dataset.csv")
+    tsv_data.to_csv("./generic_datafile/dataset.csv")
         
     return tsv_data
 
 
-def read_dict(path = "./inverted_index.txt"):
+def read_dict(path = "./generic_datafile/inverted_index.txt"):
     
     dic = dict()
     
