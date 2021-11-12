@@ -479,7 +479,7 @@ def preprocessing(string):
     for word in new_words:
         processed_string.append(stemmer.stem(word))
         
-    #processed_string = set(processed_string)
+    processed_string = set(processed_string)
     
     return processed_string
 
