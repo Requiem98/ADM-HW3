@@ -134,10 +134,9 @@ def findUsers(string):
 def str_to_datetime(d): #Convert a string into a datetime type
     """Input: string,
     Output: list"""
-<<<<<<< HEAD
-=======
+
     
->>>>>>> b62d59cd04d3c3973ebe79ad186e5fca5d33ced8
+
     if d=="Not available":
         return None
     else: 
