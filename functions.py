@@ -51,6 +51,9 @@ def save_html_AnimePage_In_ListAnimePage(urls, folderNumber, CPUs = multiprocess
 
 def get_listAnimePage(index, listPages):
     listPages[index] = requests.get(f"https://myanimelist.net/topanime.php{'?limit={}'.format(50*index)}")
+    
+    """if(listPages[index].status_code != 200) : 
+        raise Exception(f"Web site have closed the connection at page: {index}")"""
 
 
 
@@ -90,7 +93,7 @@ def initGet(pageToGet = 400 ,CPUs = multiprocessing.cpu_count()):
 
 def getAnime(pages, start=0):
     pages_from_start_to_end = pages[start:]
-    for i in range(0, len(pages_from_start_to_end)) : 
+    for i in tqdm(range(0, len(pages_from_start_to_end))) : 
         save_html_AnimePage_In_ListAnimePage(pages_from_start_to_end[i], start+i+1)
 
 
@@ -192,7 +195,7 @@ def getDataFromPage(pagePath):
     else:
         finalDict["Episodes"] = None
 
-    if(tempDict["Aired"] != "N/A"):
+    if(tempDict["Aired"] != "N/A" and tempDict["Aired"] != "Not available"):
         finalDict["Aired"]  = tempDict["Aired"]#releasedDate and endDate
     else:
         finalDict["Aired"] = None
