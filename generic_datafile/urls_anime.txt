@@ -215,7 +215,6 @@ https://myanimelist.net/anime/34240/Shelter_Music
 https://myanimelist.net/anime/13125/Shinsekai_yori
 https://myanimelist.net/anime/37095/Violet_Evergarden__Kitto_Ai_wo_Shiru_Hi_ga_Kuru_no_Darou
 https://myanimelist.net/anime/48653/Yoru_Ni_Kakeru
-https://myanimelist.net/anime/37450/Seishun_Buta_Yarou_wa_Bunny_Girl_Senpai_no_Yume_wo_Minai
 https://myanimelist.net/anime/25835/Shirobako
 https://myanimelist.net/anime/10863/Steins_Gate__Oukoubakko_no_Poriomania
 https://myanimelist.net/anime/41487/Tensei_shitara_Slime_Datta_Ken_2nd_Season_Part_2
@@ -233,6 +232,7 @@ https://myanimelist.net/anime/39112/Kawaki_wo_Ameku
 https://myanimelist.net/anime/40211/Luo_Xiao_Hei_Zhan_Ji_Movie
 https://myanimelist.net/anime/1698/Nodame_Cantabile
 https://myanimelist.net/anime/45/Rurouni_Kenshin__Meiji_Kenkaku_Romantan
+https://myanimelist.net/anime/37450/Seishun_Buta_Yarou_wa_Bunny_Girl_Senpai_no_Yume_wo_Minai
 https://myanimelist.net/anime/2685/Tsubasa__Tokyo_Revelations
 https://myanimelist.net/anime/6675/Redline
 https://myanimelist.net/anime/2418/Stranger__Mukou_Hadan
@@ -405,13 +405,13 @@ https://myanimelist.net/anime/39198/Kanata_no_Astra
 https://myanimelist.net/anime/8129/Kuragehime
 https://myanimelist.net/anime/32902/Mahoutsukai_no_Yome__Hoshi_Matsu_Hito
 https://myanimelist.net/anime/721/Princess_Tutu
+https://myanimelist.net/anime/37430/Tensei_shitara_Slime_Datta_Ken
 https://myanimelist.net/anime/34822/Tsuki_ga_Kirei
 https://myanimelist.net/anime/28025/Tsukimonogatari
 https://myanimelist.net/anime/34076/Uchouten_Kazoku_2
 https://myanimelist.net/anime/40911/Yuukoku_no_Moriarty
 https://myanimelist.net/anime/4921/Ramayana__The_Legend_of_Prince_Rama
 https://myanimelist.net/anime/40542/Saiki_Kusuo_no_Ψ-nan__Ψ-shidou-hen
-https://myanimelist.net/anime/37430/Tensei_shitara_Slime_Datta_Ken
 https://myanimelist.net/anime/4938/Tsubasa__Shunraiki
 https://myanimelist.net/anime/23283/Zankyou_no_Terror
 https://myanimelist.net/anime/24833/Ansatsu_Kyoushitsu
