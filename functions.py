@@ -134,6 +134,10 @@ def findUsers(string):
 def str_to_datetime(d): #Convert a string into a datetime type
     """Input: string,
     Output: list"""
+<<<<<<< HEAD
+=======
+    
+>>>>>>> b62d59cd04d3c3973ebe79ad186e5fca5d33ced8
     if d=="Not available":
         return None
     else: 
@@ -584,4 +588,38 @@ def read_dict(path = "./generic_datafile/inverted_index.txt"):
             dic[key] = values
 
     return dic
+
+
+def tfidf(i,j,d):
+    """
+    Input: (string, int, pandas.array)
+    Output: int
+    """
+    
+    ddad=[]
+
+    for doc in d:
+        if(isinstance(doc, str)):
+            ddad.append(f.preprocessing(doc)) 
+            #get all the sinonpsyses
+            #in a list of set
+    
+    i=f.preprocessing(i)
+    i=i.pop()
+    
+    n_ij=ddad[j].count(i)
+    
+   #tfij=n_ij/d_j where d_j=len(ddad[j])
+    
+    tfij=n_ij/len(ddad[j])
+    
+    idf_den=0
+
+    for d in ddad:
+        check=d.count(i)
+        if check>0:
+            idf_den+=1
+    idf=np.log10(len(ddad)/idf_den)
+    
+    return tfij*idf
 
