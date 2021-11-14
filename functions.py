@@ -15,6 +15,10 @@ import nltk
 import numpy as np
 import hashlib
 import pickle
+import heapq
+
+#style of the dataframe output
+pd.set_option('display.max_colwidth', None)
 
 """
 ============================================================================================================
@@ -478,6 +482,7 @@ def preprocessing(string):
     processed_string = []
     stemmer = nltk.SnowballStemmer("english", ignore_stopwords=False)
     words = nltk.word_tokenize(string)
+    words = list(map(lambda word: word.replace("°", ""), words))
     new_words= [word for word in words if word.isalnum()]
     
     
@@ -547,6 +552,42 @@ def make_inverted_index_tfidf():
     with open("./generic_datafile/inverted_index_tfidf.txt", "w") as file:
         for key in tqdm(inverted_index_new):
             file.write(key + ":" + ";".join(inverted_index_new[key]))
+            file.write("\n")
+
+            
+def make_inverted_index_tfidf_with_names():
+    vocabulary = read_vocabulary_per_doc_with_names()
+    synopsis = read_synopsis_and_names()
+    inverted_index_new = collections.defaultdict(list)
+    inverted_index_old = read_inverted_index_with_names()
+    
+    for word in tqdm(vocabulary):
+        inverted_index_new[word[0]].append(str(tfidf(word[0], int(word[1])-1, synopsis, inverted_index_old)))
+
+    
+    with open("./generic_datafile/inverted_index_tfidf_with_name.txt", "w") as file:
+        for key in tqdm(inverted_index_new):
+            file.write(key + ":" + ";".join(inverted_index_new[key]))
+            file.write("\n")
+            
+            
+def make_inverted_index_with_names():
+    data = pd.read_csv("./generic_datafile/dataset.csv", usecols=["Synopsis", "Name"])
+    dic = collections.defaultdict(list)
+    
+    for index, synops in tqdm(enumerate(data["Synopsis"].array)):
+        if(isinstance(synops, str)):
+            for word in preprocessing(synops):
+                dic[hashlib.sha256(word.encode()).hexdigest()].append(str(index+1))
+                
+    for index, name in tqdm(enumerate(data["Name"].array)):
+        if(isinstance(name, str)):
+            for word in preprocessing(name):
+                dic[hashlib.sha256(word.encode()).hexdigest()].append(str(index+1))
+    
+    with open("./generic_datafile/inverted_index_with_name.txt", "w") as file:
+        for key in tqdm(dic):
+            file.write(str(key) + ":" + ",".join(dic[key]))
             file.write("\n")
 
 """
@@ -661,19 +702,90 @@ def search_2():
 
                 for i in indexs:
                     similarities.append(cosine_similarity([sha256(w) for w in query], i, vocabulary, synopsis, inverted_index_old))
+                
+                similarities_and_docs = list(zip(similarities, indexs))
+                
+                similarities_and_docs = maxHeapfy(similarities_and_docs)
+                
 
+                for index in similarities_and_docs:
+                    out_data = out_data.append(tsv_data.loc[int(index[1])-1], ignore_index=False)
 
-                for i, index in enumerate(indexs):
-                    out_data = out_data.append(tsv_data.loc[int(index)-1], ignore_index=False)
+                out_data["Similarity"] = [simil[0] for simil in similarities_and_docs]
 
-                out_data["Similarity"] = similarities
-
-                display(out_data.nlargest(200, columns=["Similarity"]))
+                
+                display(out_data)
                 
                 out_data.drop(out_data.index[:], inplace=True)
                 
             except KeyError:
-                print("\nNo results\n\n")   
+                print("\nNo results\n\n")
+                
+
+def calculate_score(query, doc_index, vocabulary, synopsis, inverted_index_old):
+    names, types, popularity = read_processed_columns()
+    cos_sim = cosine_similarity([sha256(w) for w in query], doc_index, vocabulary, synopsis, inverted_index_old)
+    
+    name_score = len(names[doc_index].intersection(set(query)))/len(names[doc_index]) #valore compreso tra 0 e 1
+    
+    popularity_score = (max(popularity.values())-popularity[doc_index])/max(popularity.values())*2 #valore compreso tra 0 e 2  (indipendeente dalla query)
+    
+    if(types[doc_index] in query):
+        types_score = 1
+    else:
+        types_score = 0
+        
+    return (cos_sim + name_score + popularity_score + types_score)
+
+
+def search_3():
+    tsv_data = pd.read_csv("./generic_datafile/dataset.csv")[["Name", "Synopsis", "url"]]
+    dic = read_inverted_index_tfidf_with_names()
+    inverted_index_old = read_inverted_index_with_names()
+    stop = False
+    out_data = pd.DataFrame()
+    vocabulary = read_vocabulary()
+    synopsis = read_synopsis_and_names()
+    
+    while(not stop):
+        print("INSTRUCTIONS:\nto close the search engine:exit()\n\n")
+        
+        query = input("Search:")
+
+        if(query == "exit()"):
+            stop = True
+            print("\n\n\nstopping search engine...\n\n\n")
+        else:
+            query = list(preprocessing(query))
+            try:
+                indexs = []
+                freqs = []
+                similarities = []
+                
+                for w in query:
+                    indexs.append(set([i[0] for i in dic[sha256(w)]]))
+
+                indexs = indexs[0].intersection(*indexs)
+
+                for i in indexs:
+                    similarities.append(calculate_score(query, i, vocabulary, synopsis, inverted_index_old))
+                
+                similarities_and_docs = list(zip(similarities, indexs))
+                
+                similarities_and_docs = maxHeapfy(similarities_and_docs)
+
+                for index in similarities_and_docs:
+                    out_data = out_data.append(tsv_data.loc[int(index[1])-1], ignore_index=False)
+
+                out_data["Similarity"] = [simil[0] for simil in similarities_and_docs]
+
+                
+                display(out_data)
+                
+                out_data.drop(out_data.index[:], inplace=True)
+                
+            except KeyError:
+                print("\nNo results\n\n")
     
     
 """
@@ -685,6 +797,23 @@ def search_2():
 
 """
 
+def maxHeapfy(lst):
+    
+    negative_lst = []
+    
+    for elem in lst:
+        negative_lst.append((-elem[0], elem[1]))
+    
+    heapq.heapify(negative_lst)
+    
+    negative_lst = [heapq.heappop(negative_lst) for i in range(len(negative_lst))]
+    
+    sorted_lst = []
+    
+    for elem in negative_lst:
+        sorted_lst.append((abs(elem[0]), elem[1]))
+    
+    return sorted_lst
 
 
 def make_dataframe(animePath = anime_tsv_path()):
@@ -718,7 +847,36 @@ def read_inverted_index(path = "./generic_datafile/inverted_index.txt"):
 
     return dic
 
+def read_inverted_index_with_names(path = "./generic_datafile/inverted_index_with_name.txt"):
+    
+    dic = dict()
+    
+    with open(path, "r") as file:
+        lines = file.read().splitlines()
+        for line in lines:
+            key = line.split(":")[0]
+            values = line.split(":")[1].split(",")
+            dic[key] = values
+
+    return dic
+
 def read_inverted_index_tfidf(path = "./generic_datafile/inverted_index_tfidf.txt"):
+    
+    dic = dict()
+    
+    with open(path, "r") as file:
+        lines = file.read().splitlines()
+        for line in lines:
+            key = line.split(":")[0]
+            values = line.split(":")[1].split(";")
+            values = [el.strip("()") for el in values]
+            values = [tuple(map(float, i.split(','))) for i in values]
+            dic[key] = values
+
+    return dic
+
+
+def read_inverted_index_tfidf_with_names(path = "./generic_datafile/inverted_index_tfidf_with_name.txt"):
     
     dic = dict()
     
@@ -735,7 +893,7 @@ def read_inverted_index_tfidf(path = "./generic_datafile/inverted_index_tfidf.tx
 
 #Parole si ripetono ma solo in documenti diversi
 def make_vocabulary_of_every_word_in_doc():
-    data = pd.read_csv("./generic_datafile/dataset.csv", usecols=["Synopsis"])
+    data = pd.read_csv("./generic_datafile/dataset.csv", usecols=["Synopsis", "Name"])
     list_of_processed_synops = []
     
     for index, synops in tqdm(enumerate(data["Synopsis"].array)):
@@ -748,6 +906,32 @@ def make_vocabulary_of_every_word_in_doc():
     
     with open("./generic_datafile/vocabulary_per_doc.txt", "w") as file:
         for word in list_of_processed_synops:
+            file.write(word[0] + ":" + str(word[1]))
+            file.write("\n")
+
+
+def make_vocabulary_of_every_word_in_doc_with_names():
+    data = pd.read_csv("./generic_datafile/dataset.csv", usecols=["Synopsis", "Name"])
+    list_of_processed_synops_and_name = []
+    
+    for index, synops in tqdm(enumerate(data["Synopsis"].array)):
+        if(isinstance(synops,str)):
+            list_of_processed_synops_and_name += [[word ,index+1] for word in preprocessing(synops)]
+        
+    print(len(list_of_processed_synops_and_name))
+            
+    for index, name in tqdm(enumerate(data["Name"].array)):
+        if(isinstance(name,str)):
+            list_of_processed_synops_and_name += [[word ,index+1] for word in preprocessing(name)]
+            
+    print(len(list_of_processed_synops_and_name))
+    
+    for index, word in tqdm(enumerate(list_of_processed_synops_and_name)):
+        list_of_processed_synops_and_name[index][0] = hashlib.sha256(word[0].encode()).hexdigest()
+        
+    
+    with open("./generic_datafile/vocabulary_per_doc_with_names.txt", "w") as file:
+        for word in list_of_processed_synops_and_name:
             file.write(word[0] + ":" + str(word[1]))
             file.write("\n")
 
@@ -779,6 +963,18 @@ def read_vocabulary_per_doc(path = "./generic_datafile/vocabulary_per_doc.txt"):
 
     return voc
 
+def read_vocabulary_per_doc_with_names(path = "./generic_datafile/vocabulary_per_doc_with_names.txt"):
+    
+    voc = []
+
+    with open(path, "r") as file:
+        lines = file.read().splitlines()
+        for line in lines:
+            voc.append((line.split(":")[0], line.split(":")[1]))
+        
+
+    return voc
+
 def read_vocabulary(path = "./generic_datafile/vocabulary.txt"):
     
     voc = collections.OrderedDict()
@@ -795,6 +991,7 @@ def read_vocabulary(path = "./generic_datafile/vocabulary.txt"):
 def processed_synopsis():
     data = pd.read_csv("./generic_datafile/dataset.csv", usecols=["Synopsis"])
     list_of_processed_synops = []
+    
     for synops in tqdm(data["Synopsis"].array):
         if(isinstance(synops,str)):
             list_of_processed_synops.append(preprocessing_with_occurences(synops))
@@ -811,9 +1008,36 @@ def processed_synopsis():
         pickle.dump(list_of_processed_synops, file, pickle.HIGHEST_PROTOCOL)
         
         
+def processed_synopsis_and_names():
+    data = pd.read_csv("./generic_datafile/dataset.csv", usecols=["Synopsis", "Name"])
+    list_of_processed_synops_and_names = []
+    
+    for synops, name in tqdm(zip(data["Synopsis"].array, data["Name"].array)):
+        if(isinstance(synops,str) or isinstance(name,str)):
+            stringToProcess = str(synops) + " " + name
+            list_of_processed_synops_and_names.append(preprocessing_with_occurences(stringToProcess))
+        else:
+            list_of_processed_synops_and_names.append([])
+            
+    
+    for index, synops in tqdm(enumerate(list_of_processed_synops_and_names)):
+        hashwords = []
+        for word in synops:
+            hashwords.append(hashlib.sha256(word.encode()).hexdigest())
+        list_of_processed_synops_and_names[index] = hashwords
+    
+    with open("./generic_datafile/synopsis_and_names.plk", 'wb') as file:  # Overwrites any existing file.
+        pickle.dump(list_of_processed_synops_and_names, file, pickle.HIGHEST_PROTOCOL)
+        
+        
         
 def read_synopsis():
     with open('./generic_datafile/synopsis.plk', 'rb') as file:
+        out = pickle.load(file)
+    return out
+
+def read_synopsis_and_names():
+    with open('./generic_datafile/synopsis_and_names.plk', 'rb') as file:
         out = pickle.load(file)
     return out
 
@@ -855,12 +1079,92 @@ def read_doc(i, length):
     return arr
 
 
+def preprocess_dataset_columns():
+    data = pd.read_csv("./generic_datafile/dataset.csv", usecols=["Name", "Popularity", "Type"])
+    
+    names_data = data["Name"].array
+    popularity_data = np.array(data["Popularity"].array)
+    type_data = data["Type"].array
+    
+    
+    names = collections.OrderedDict()
+    
+    for doc_index, w in tqdm(enumerate(names_data), desc = "names"):
+        names[doc_index+1] = f.preprocessing(w)
+        
+    with open("./generic_datafile/names.plk", 'wb') as file:  # Overwrites any existing file.
+        pickle.dump(names, file, pickle.HIGHEST_PROTOCOL)
+        
+    types = collections.OrderedDict()
+    
+    for doc_index, t in tqdm(enumerate(type_data), desc = "types"):
+        types[doc_index+1] = f.preprocessing(t)
+        
+    with open("./generic_datafile/types.plk", 'wb') as file:  # Overwrites any existing file.
+        pickle.dump(types, file, pickle.HIGHEST_PROTOCOL)
+        
+    popularity = collections.OrderedDict()
+    
+    for doc_index, p in tqdm(enumerate(popularity_data), desc = "popularity"):
+        popularity[doc_index+1] = p
+        
+    with open("./generic_datafile/popularity.plk", 'wb') as file:  # Overwrites any existing file.
+        pickle.dump(popularity, file, pickle.HIGHEST_PROTOCOL)
+        
+
+def read_processed_columns():
+    with open('./generic_datafile/names.plk', 'rb') as file:
+        names = pickle.load(file)
+        
+        
+    with open('./generic_datafile/types.plk', 'rb') as file:
+        types = pickle.load(file)
+        
+        
+    with open('./generic_datafile/popularity.plk', 'rb') as file:
+        popularity = pickle.load(file)
+        
+    return names, types, popularity
+
+
 def initialize_file_for_search_engine():
+    print("Starting creating the tsv files...")
     write_all_anime_tsv()
+    print("tsv files created")
+    print("Starting creating the database...")
     make_dataframe()
+    print("database created")
+    print("Starting creating the inverted index...")
     make_inverted_index()
+    print("Inverted index created")
+    print("Starting creating the inverted index with names...")
+    make_inverted_index_with_names()
+    print("Inverted index created")
+    print("Starting creating the vocabolary of every word per document...")
     make_vocabulary_of_every_word_in_doc()
+    print("Vocabolary created")
+    print("Starting creating the vocabolary of every word per document with names...")
+    make_vocabulary_of_every_word_in_doc_with_names()
+    print("Vocabolary created")
+    print("Starting created the list of tokenized synopsis...")
     processed_synopsis()
+    print("Tokenized synipsis created")
+    print("Starting created the list of tokenized synopsis and names...")
+    processed_synopsis_and_names()
+    print("Tokenized synipsis created")
+    print("Starting creating the vocabulary...")
     make_vocabulary()
+    print("Vocabulary created")
+    print("Starting creating the inverted index with TFIDF score...")
     make_inverted_index_tfidf()
+    print("Inverted index created")
+    print("Starting creating the inverted index with TFIDF score (with names)...")
+    make_inverted_index_tfidf_with_names()
+    print("Starting creating the bags of words...")
     make_bagOfWords()
+    print("Bags of words created")
+    print("Startng processing the dataset columns...")
+    preprocess_dataset_columns()
+    print("Columns processed")
+    
+    print("All operation done.")
