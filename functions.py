@@ -30,7 +30,8 @@ pd.set_option('display.max_colwidth', None)
 """
 
 def save_html_animePage(url, directoryNum, index):
-    #this function saves the html of the anime in a folder.
+    # For each page this function takes as input it saves the html of the anime in a folder.
+    
     # Get current page
     req = requests.get(url)
     
@@ -51,11 +52,19 @@ def save_html_animePage(url, directoryNum, index):
             file.write(req.text)
 
 def save_html_AnimePage_In_ListAnimePage(urls, folderNumber, CPUs = multiprocessing.cpu_count()):
+    # This function saves the html of the anime of all the pages in folders, the anime present in a page are saved in a folder.
+    # So I will have a folder for each page.
+    
+    # I divide the process into several sub-processes to not overload the computer.
     pool = ThreadPool(CPUs)
+    # For each page I read I call the "save_html_animePage" function (previously defined) which saves the html of the anime in a folder.
     pool.map(lambda url : save_html_animePage(url, folderNumber, (50*(folderNumber-1)) + urls.index(url) +1), urls)
 
 
 def get_listAnimePage(index, listPages):
+    # With this function I download all the pages from "MyAnimeList".
+    # Each page will contain 50 anime, that is 50 html which I will then have to save.
+    
     listPages[index] = requests.get(f"https://myanimelist.net/topanime.php{'?limit={}'.format(50*index)}")
     
     if(listPages[index].status_code != 200) : 
@@ -64,6 +73,8 @@ def get_listAnimePage(index, listPages):
 
 
 def get_urls_In_ListAnimePage(page, pages):
+    # In every page that I have downloaded I look for all the links of the souls present in a single page.
+    # I take only those with the tag "href" which are exactly the links of the anime.
     
     soup = BeautifulSoup(page.content, "html.parser")
     
@@ -80,11 +91,16 @@ def get_urls_In_ListAnimePage(page, pages):
     
     
 def initGet(pageToGet = 383 ,CPUs = multiprocessing.cpu_count()):
-
+    # This is the main function that starts the whole process. It takes as input the number of pages to download.
+    
     pages = [None] * pageToGet
     numberOfPage = range(0, pageToGet)
-
+    
+    # I divide the process into several sub-processes to not overload the computer.
     pool = ThreadPool(CPUs)
+    
+    # For each page he reads, he creates the list of the 50 anime present in the page and for each page he saves the urls of the souls.
+    # I do this using the two functions I defined previously.
     pool.map(lambda num : get_listAnimePage(num, pages), numberOfPage)   
     pool.map(lambda page : get_urls_In_ListAnimePage(page, pages), pages)
     
@@ -98,6 +114,9 @@ def initGet(pageToGet = 383 ,CPUs = multiprocessing.cpu_count()):
 
 
 def getAnime(pages, start=0):
+    # For each page I downloaded, I save the html of the 50 anime.
+    # I do this using the previously defined "save_html_AnimePage_In_ListAnimePage" function.
+    
     pages_from_start_to_end = pages[start:]
     for i in tqdm(range(0, len(pages_from_start_to_end))) : 
         save_html_AnimePage_In_ListAnimePage(pages_from_start_to_end[i], start+i+1)
@@ -113,6 +132,10 @@ def getAnime(pages, start=0):
 """
 
 def findUsers(string):
+    # With this function I find the "users".
+    # The only place I can find "users" is in the "Score" block, where "users" is the third part of this block. So I just consider that part.
+    #I notice that the number is written twice, once with commas and once without commas, so I have to fix it to get the correct data.
+    
     string = string.split()[3].split(",")
     
     if(len(string) < 2):
@@ -141,7 +164,7 @@ def str_to_datetime(d): #Convert a string into a datetime type
     """Input: string,
     Output: list"""
 
-    
+    # With this function we can convert a string into a datetime type, but we need to check all possible combinations.
 
     if d=="Not available":
         return None
@@ -191,31 +214,45 @@ def tdForCharacters_Voices(tag):
 
 
 def getDataFromPage(pagePath):
+    # This function takes an html as input and saves all the useful information present in the page.
+    
+    # I open the file that I pass as input for reading
     with open(pagePath, "r") as file:
         soup = BeautifulSoup(file, "html.parser")
-
+        
+    # I take all the "div" tag with class "spaceit_add" because this class contains all the information that interests me.
     temp = soup.find_all("div", {"class": "spaceit_pad"}) 
 
-    out=[]
-    tempDict = collections.OrderedDict()
-    finalDict = collections.OrderedDict()
+    out=[]   # I create a temporary list
+    tempDict = collections.OrderedDict()   # I create a temporary dictionary
+    finalDict = collections.OrderedDict()   # I create the final dictionary in which I will save all the information
 
+    # With this for loop I scroll through all the "div" tags that I have taken
+    # and I save in the "out" list all the texts present in these tags
     for i in temp:
         out.append(i.text)
 
+    # In this "for" loop I go through all the elements in the out list and clean up those elements a bit.
     for i in range(0, len(out)):
-        out[i] = out[i].strip()
-        out[i] = out[i].strip("\n")
-        out[i] = out[i].replace("\n", " ")
+        out[i] = out[i].strip()   # I eliminate the spaces present at the extremes
+        out[i] = out[i].strip("\n")   # I delete the "\ n" present at the extremes
+        out[i] = out[i].replace("\n", " ")   # I replace the "\ n" present within the text with a space
 
 
-
+    # Now I create the temporary dictionary with the information I have collected.
+    # Then I start a "for" loop on all the elements of the "out" list.
+    # For each element of the list I look for the index of ":".
+    # In this way I can create the key of my dictionary and its value.
     for i in out:
         index = i.find(":")
         tempDict[i[:index]] = i[index+1:].strip()
 
 
-
+    # Now we have to clean up the data we collected and then create the final dictionary.
+    # For each element of the temporary dictionary I have to check if it exists or not, 
+    # or if it has particular values, for example "N / A", "Not available", ... 
+    # If it exists I add it to the final dictionary, 
+    # if it does not exist I add "None "to indicate that the value is undefined.
     if(tempDict["Type"] != "N/A"):
         finalDict["Type"] = tempDict["Type"]#Anime Type
     else:
@@ -225,7 +262,10 @@ def getDataFromPage(pagePath):
         finalDict["Episodes"] = int(tempDict["Episodes"]) #number of episodes
     else:
         finalDict["Episodes"] = None
-
+        
+    # In this case we have to use the "str_to_datetime" function we defined previously 
+    # to transform all the strings indicating dates into a datetime.
+    # We separate the starting date from the ending date.
     if(tempDict["Aired"] != "N/A" and tempDict["Aired"] != "Not available"):
         aired = str_to_datetime(tempDict["Aired"])
         finalDict["releasedDate"]  = aired[0]
@@ -239,6 +279,8 @@ def getDataFromPage(pagePath):
     else:
         finalDict["Members"] = None
 
+    # I find the users in the "Score" block.
+    # I do this using the "findUsers" function that I defined earlier.
     if(tempDict["Score"].split()[3] != "-"):
         finalDict["Users"] = findUsers(tempDict["Score"])# Users
     else:
@@ -278,6 +320,9 @@ def getDataFromPage(pagePath):
         finalDict["Synopsis"] = None
 
     #ADDING THE RELATED ANIME
+    # This variable is not always defined so I have to do a test.
+    # If it exists, I take the link, I use "set" because I don't want repetitions and then add it to the dictionary.
+    # If it doesn't exist I add "None" to the dictionary.
     try:
         temp = soup.find("table", class_="anime_detail_related_anime", style="border-spacing:0px;")
         temp = temp.find_all("a")
@@ -298,6 +343,9 @@ def getDataFromPage(pagePath):
     staff = []
     role = []
 
+    # I can save all these elements together because they are all in the same table.
+    # I consider first the left column, then the right column.
+    # I check if they exist or not and then add them to the dictionary.
     try:
         temp = soup.find_all("div", class_="left-column fl-l divider")
 
@@ -379,6 +427,8 @@ def getDataFromPage(pagePath):
     finalDict["Staffs"] = staff
     finalDict["Roles"] = role
 
+    # In the end I get the final dictionary for a single anime.
+    
     return finalDict
 
 
@@ -390,9 +440,11 @@ def getDataFromPage(pagePath):
 ============================================================================================================
 
 """
-
+# These are two functions that I need to create a list of strings indicating the path of each file.
 
 def animeFile_path():
+    # This function saves the path where each anime is saved.
+    
     animePath = []
 
     for animeDir in range(1,384):
@@ -407,6 +459,8 @@ def animeFile_path():
 
 
 def anime_tsv_path(control_parameter = 10):
+    # This function saves the path where each tsv file related to anime is saved.
+    
     anime_tsv_path = []
     check = 0
     index = 1
@@ -435,12 +489,15 @@ def anime_tsv_path(control_parameter = 10):
 
 
 def write_anime_tsv(pagePath):
+    
+    # I call the "getDataFromPage" function created previously which collects all the data of an anime in a single dictionary.
     data = getDataFromPage(pagePath)
     
     #Use regex to find the anime number
     pattern = re.compile("_[0-9].*")
     index = pattern.findall(pagePath)[0].strip('_html.')
     
+    # I create the path in whiche I want to save these tsv files and I save them.
     save_path = f"{pathlib.Path().resolve()}/anime_tsv"
     Path(save_path).mkdir(parents=True, exist_ok=True)
     
@@ -462,11 +519,15 @@ def write_anime_tsv(pagePath):
 
 
 def write_all_anime_tsv(CPUs = multiprocessing.cpu_count()):
+    # Now I write all the tsv files concerning the anime.
 
+    # I divide the process into several sub-processes to not overload the computer.
     pool = ThreadPool(CPUs)
 
+    # I get all the folders where the anime are saved using the "animeFile_path" function that I created earlier.
     anime = animeFile_path()
 
+    # For each anime in the anime list I save the tsv file.
     pool.map(lambda anime: write_anime_tsv(anime), anime);
     
     
@@ -481,20 +542,33 @@ def write_all_anime_tsv(CPUs = multiprocessing.cpu_count()):
 
 def preprocessing(string):
     processed_string = []
+    
+    # I initialize the stemmer.
     stemmer = nltk.SnowballStemmer("english", ignore_stopwords=False)
+    
+    # First I tokenize the string I take as input, that is, I create a list of words and symbols.
     words = nltk.word_tokenize(string)
+    
     words = list(map(lambda word: word.replace("°", ""), words))
+    
+    # Then I use a "for" loop to eliminate all symbols and punctuation to get a list of only words and numbers.
     new_words= [word for word in words if word.isalnum()]
     
-    
+     # Now I stemming on the new list of words I created.
     for word in new_words:
         processed_string.append(stemmer.stem(word))
-        
+     
+    # I don't want repetitions, so I use "set"
     processed_string = set(processed_string)
     
+     # At the end I get all the words that will go into the dictionary.
+     
     return processed_string
 
 def preprocessing_with_occurences(string):
+    # This function does the same thing as the previous function, 
+    # but in this case I don't use "set" because I want to consider repetitions.
+    
     processed_string = []
     stemmer = nltk.SnowballStemmer("english", ignore_stopwords=False)
     words = nltk.word_tokenize(string)
@@ -516,14 +590,23 @@ def preprocessing_with_occurences(string):
 """
 
 def make_inverted_index():
+    # I access my dataset in the "Synopsis" column
     data = pd.read_csv("./generic_datafile/dataset.csv", usecols=["Synopsis"])
+    
+    # I create a dictionary in which I will save my "inverted index".
     dic = collections.defaultdict(list)
     
+    # index = document number ; synops = corpus of the document
     for index, synops in tqdm(enumerate(data["Synopsis"].array)):
+        # First of all I check that the synopsis is a string (because not all anime have the synopsis)
         if(isinstance(synops, str)):
+            # For each word present in the corpus of my document I do the "preprocessing" (function created previously), that is, I create a list of words.
+            # Then I transform each word in the list into a hash, add it to my dictionary and append the number of the document in which it appears.
+            # In this way every time I add the number of the document if a word is already present in the dictionary and otherwise it creates a new one.
             for word in preprocessing(synops):
                 dic[hashlib.sha256(word.encode()).hexdigest()].append(str(index+1))
     
+    # I save my dictionary in a file and this will be my "inverted index".
     with open("./generic_datafile/inverted_index.txt", "w") as file:
         for key in tqdm(dic):
             file.write(str(key) + ":" + ",".join(dic[key]))
@@ -532,6 +615,9 @@ def make_inverted_index():
 
 
 def make_inverted_index_tfidf():
+    # This function is similar to the prevoius function "make_inverted_index", 
+    # but in this case I use the function "tfidf" to calculate the inverted index.
+    
     vocabulary = read_vocabulary_per_doc()
     synopsis = read_synopsis()
     inverted_index_new = collections.defaultdict(list)
@@ -548,6 +634,9 @@ def make_inverted_index_tfidf():
 
             
 def make_inverted_index_tfidf_with_names():
+    # This function is equal to the previous function "make_inverted_index_tfidf", 
+    # the only difference is that in this case I consider also the name of the anime.
+    
     vocabulary = read_vocabulary_per_doc_with_names()
     synopsis = read_synopsis_and_names()
     inverted_index_new = collections.defaultdict(list)
@@ -564,6 +653,8 @@ def make_inverted_index_tfidf_with_names():
             
             
 def make_inverted_index_with_names():
+    # This function is equal to the previous function "make_inverted_index", but in this case I consider also the name of the anime.
+    
     data = pd.read_csv("./generic_datafile/dataset.csv", usecols=["Synopsis", "Name"])
     dic = collections.defaultdict(list)
     
@@ -649,13 +740,17 @@ def cosine_similarity(query, doc, vocabulary, documents, inverted_index_old):
 
 
 def calculate_score(query, doc_index, vocabulary, synopsis, inverted_index_old):
+    # I define a new score to do my research.
+    
     names, types, popularity = read_processed_columns()
     cos_sim = cosine_similarity([sha256(w) for w in query], doc_index, vocabulary, synopsis, inverted_index_old)
     
-    name_score = len(names[doc_index].intersection(set(query)))/len(names[doc_index]) #valore compreso tra 0 e 1
+    name_score = len(names[doc_index].intersection(set(query)))/len(names[doc_index]) # Value between 0 and 1
     
-    popularity_score = ((max(popularity.values())-popularity[doc_index])/max(popularity.values()))*2 #valore compreso tra 0 e 2  (indipendeente dalla query)
+    popularity_score = ((max(popularity.values())-popularity[doc_index])/max(popularity.values()))*2 # Value between 0 and 2  (independent of the query)
     
+    # If a particular type is entered (for example TV, episodes, ...), 
+    # I also calculate how many elements have that type, in order to have a better result.
     if(types[doc_index] in query):
         types_score = 1
     else:
@@ -676,37 +771,49 @@ def calculate_score(query, doc_index, vocabulary, synopsis, inverted_index_old):
 
 
 def search():
+    # I open the dataset on which I want to do my research.
     tsv_data = pd.read_csv("./generic_datafile/dataset.csv")[["Name", "Synopsis", "url"]]
+    # I load my "inverted index" (function created below).
     dic = read_inverted_index()
+    # I define a variable to terminate the loop.
     stop = False
+    # I initialize a dataframe which will be my output.
     out_data = pd.DataFrame()
     
     while(not stop):
         print("INSTRUCTIONS:\nto close the search engine:exit()\n\n")
         
+        # I ask the user to enter the query.
         query = input("Search:")
 
         if(query == "exit()"):
             stop = True
             print("\n\n\nstopping search engine...\n\n\n")
         else:
+            # First I use the "preprocessing" function to transform the query into a list of words.
             query = list(preprocessing(query))
+            
+            # I must distinguish two cases because if the query that is entered is not present in my dictionary I will not have a result.
             try:
                 indexs = []
+                # I first convert the query words to hash. and I create a new list.
                 for w in query:
                     indexs.append(set(dic[sha256(w)]))
 
+                # I make the intersection because I want to see in which document all the words of the query are contained.
                 indexs = indexs[0].intersection(*indexs)
                 
+                # For each word in the new list I check which document it is in and I build the final dataframe.
                 if(len(indexs) != 0):
                     for index in indexs:
                         out_data = out_data.append(tsv_data.loc[int(index)-1], ignore_index=True)
                         
-                    display(out_data)
+                    display(out_data)   # I show the final dataframe
                 
                 else:
                     print("\nNo results\n\n")
 
+                # I free the dataframe to start a new search
                 out_data.drop(out_data.index[:], inplace=True)
                 
             except KeyError:
@@ -716,6 +823,9 @@ def search():
 
     
 def search_2():
+    # This function is equal to the previous function "search", 
+    # the only difference is that in this case I use the cosine similarity to calculate the distance.
+    
     tsv_data = pd.read_csv("./generic_datafile/dataset.csv")[["Name", "Synopsis", "url"]]
     dic = read_inverted_index_tfidf()
     inverted_index_old = read_inverted_index()
@@ -768,6 +878,9 @@ def search_2():
 
 
 def search_3():
+    # This function is equal to the previous function "search_2", 
+    # but in this case I use the new score that I have defined in the function "calculate_score" 
+    
     tsv_data = pd.read_csv("./generic_datafile/dataset.csv")[["Name", "Synopsis", "url"]]
     dic = read_inverted_index_tfidf_with_names()
     inverted_index_old = read_inverted_index_with_names()
@@ -825,6 +938,7 @@ def search_3():
 ============================================================================================================
 
 """
+# With these functions I read the various documents that I have saved in my folders.
 
 def read_inverted_index(path = "./generic_datafile/inverted_index.txt"):
     
@@ -1075,22 +1189,31 @@ def make_single_bagOfWord(vocabulary, doc_index, documents, inverted_index):
 
 
 def make_dataframe(animePath = anime_tsv_path()):
+    # This function takes as input the path of the tsv file of the anime and creates a single pandas tsv file 
+    # with all the data I have collected on the anime.
     
+    # I create the tsv file by adding the first anime tsv file.    
     tsv_data = pd.read_csv(animePath[0], sep = "\t") 
     
+    # Then I start a for loop with which I add all the other tsv files, one below the other.
     for path in tqdm(animePath[1:]):
         tsv_data = tsv_data.append(pd.read_csv(path, sep ="\t"), ignore_index=True)
     
+    # I also add the column with the url of the pages.
     with open("./generic_datafile/urls_anime.txt", "r") as file:
         lines = file.read().splitlines()
         tsv_data['url'] = np.resize(lines,len(tsv_data))
 
+    # In the end I will have a single tsv file containing all the information.
     tsv_data.to_csv("./generic_datafile/dataset.csv")
         
     return tsv_data
 
 
 def preprocess_dataset_columns():
+    # In this function I use the funtion "preprocessing" that I have defined previously 
+    # to create a list of words using the columns "Name", "Popularity" and "Type.
+    
     data = pd.read_csv("./generic_datafile/dataset.csv", usecols=["Name", "Popularity", "Type"])
     
     names_data = data["Name"].array
@@ -1134,6 +1257,8 @@ def preprocess_dataset_columns():
 
 
 def processed_synopsis():
+    # I use the preprocessing function to transform the synopsis into a list of words which I will then use to do my research.
+    
     data = pd.read_csv("./generic_datafile/dataset.csv", usecols=["Synopsis"])
     list_of_processed_synops = []
     
@@ -1154,6 +1279,7 @@ def processed_synopsis():
         
         
 def processed_synopsis_and_names():
+    # This function is equal to the previous function, but in this case I precess also the name of the anime.
     data = pd.read_csv("./generic_datafile/dataset.csv", usecols=["Synopsis", "Name"])
     list_of_processed_synops_and_names = []
     
@@ -1189,6 +1315,8 @@ def maxHeapfy(lst):
     
     negative_lst = []
     
+    # I change the sign to all the elements of the list because the "heappop" function that I will use later finds the minimum, 
+    # so if I change the sign to all the elements and calculate the minimum, I actually find the maximum of the original list.
     for elem in lst:
         negative_lst.append((-elem[0], elem[1]))
     
@@ -1204,6 +1332,7 @@ def maxHeapfy(lst):
     return sorted_lst
         
 def sha256(string):
+    # This functions transforms the string into a hash.
     return str(hashlib.sha256(string.encode()).hexdigest())
 
 
