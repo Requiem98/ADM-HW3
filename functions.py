@@ -30,6 +30,7 @@ pd.set_option('display.max_colwidth', None)
 """
 
 def save_html_animePage(url, directoryNum, index):
+    #this function saves the html of the anime in a folder.
     # Get current page
     req = requests.get(url)
     
@@ -472,7 +473,7 @@ def write_all_anime_tsv(CPUs = multiprocessing.cpu_count()):
 """
 ============================================================================================================
 
-    preprocessing and indexing functions
+    preprocessing functions
 
 ============================================================================================================
 
@@ -505,23 +506,14 @@ def preprocessing_with_occurences(string):
     
     return processed_string
 
-def tfidf(i,j,documents, dic):
-    """
-    Input: (string, int, pandas.array)
-    Output: int
-    """
-    
-    n_ij=documents[j].count(i)
-    
-    
-    tfij=n_ij/len(documents[j])
-    
-    idf_den = len(dic[i])
-  
-    idf=np.log10(len(documents)/idf_den)
-    
-    return (j+1,tfij*idf)
+"""
+============================================================================================================
 
+    indexing functions
+
+============================================================================================================
+
+"""
 
 def make_inverted_index():
     data = pd.read_csv("./generic_datafile/dataset.csv", usecols=["Synopsis"])
@@ -589,32 +581,33 @@ def make_inverted_index_with_names():
         for key in tqdm(dic):
             file.write(str(key) + ":" + ",".join(dic[key]))
             file.write("\n")
+            
 
 """
 ============================================================================================================
 
-    Search engine functions
+    score functions
 
 ============================================================================================================
 
 """
 
-def cosine_similarity(query, doc, vocabulary, documents, inverted_index_old):
+def tfidf(i,j,documents, dic):
+    """
+    Input: (string, int, pandas.array)
+    Output: int
+    """
     
-    N = np.zeros(len(vocabulary))
+    n_ij=documents[j].count(i)
     
-    for i, word in enumerate(vocabulary):
-        try:
-            N[i] = tfidf_query(word, query, documents, inverted_index_old)
-        except KeyError:
-            N[i] = 0.0
     
-    doc = read_doc(doc, len(vocabulary))
+    tfij=n_ij/len(documents[j])
     
-    similarity = (np.dot(doc,N)/(np.linalg.norm(doc) * np.linalg.norm(N)))
+    idf_den = len(dic[i])
+  
+    idf=np.log10(len(documents)/idf_den)
     
-    return similarity
-
+    return (j+1,tfij*idf)
 
 
 
@@ -629,6 +622,57 @@ def tfidf_query(word, doc, documents, inverted_index_old):
     idf=np.log10(len(documents)/idf_den)
    
     return tfij * idf
+
+
+
+
+def cosine_similarity(query, doc, vocabulary, documents, inverted_index_old):
+    
+    N = np.zeros(len(vocabulary))
+    
+    for i, word in enumerate(vocabulary):
+        try:
+            N[i] = tfidf_query(word, query, documents, inverted_index_old)
+        except KeyError:
+            N[i] = 0.0
+    
+    try:
+        doc = read_doc(doc, len(vocabulary))
+        
+    
+        similarity = (np.dot(doc,N)/(np.linalg.norm(doc) * np.linalg.norm(N)))
+    
+    except:
+        similarity = 0.0
+    
+    return similarity
+
+
+def calculate_score(query, doc_index, vocabulary, synopsis, inverted_index_old):
+    names, types, popularity = read_processed_columns()
+    cos_sim = cosine_similarity([sha256(w) for w in query], doc_index, vocabulary, synopsis, inverted_index_old)
+    
+    name_score = len(names[doc_index].intersection(set(query)))/len(names[doc_index]) #valore compreso tra 0 e 1
+    
+    popularity_score = ((max(popularity.values())-popularity[doc_index])/max(popularity.values()))*2 #valore compreso tra 0 e 2  (indipendeente dalla query)
+    
+    if(types[doc_index] in query):
+        types_score = 1
+    else:
+        types_score = 0
+        
+    return (cos_sim + name_score + popularity_score + types_score)
+
+
+
+"""
+============================================================================================================
+
+    Search engine functions
+
+============================================================================================================
+
+"""
 
 
 def search():
@@ -722,21 +766,6 @@ def search_2():
                 print("\nNo results\n\n")
                 
 
-def calculate_score(query, doc_index, vocabulary, synopsis, inverted_index_old):
-    names, types, popularity = read_processed_columns()
-    cos_sim = cosine_similarity([sha256(w) for w in query], doc_index, vocabulary, synopsis, inverted_index_old)
-    
-    name_score = len(names[doc_index].intersection(set(query)))/len(names[doc_index]) #valore compreso tra 0 e 1
-    
-    popularity_score = (max(popularity.values())-popularity[doc_index])/max(popularity.values())*2 #valore compreso tra 0 e 2  (indipendeente dalla query)
-    
-    if(types[doc_index] in query):
-        types_score = 1
-    else:
-        types_score = 0
-        
-    return (cos_sim + name_score + popularity_score + types_score)
-
 
 def search_3():
     tsv_data = pd.read_csv("./generic_datafile/dataset.csv")[["Name", "Synopsis", "url"]]
@@ -797,43 +826,6 @@ def search_3():
 
 """
 
-def maxHeapfy(lst):
-    
-    negative_lst = []
-    
-    for elem in lst:
-        negative_lst.append((-elem[0], elem[1]))
-    
-    heapq.heapify(negative_lst)
-    
-    negative_lst = [heapq.heappop(negative_lst) for i in range(len(negative_lst))]
-    
-    sorted_lst = []
-    
-    for elem in negative_lst:
-        sorted_lst.append((abs(elem[0]), elem[1]))
-    
-    return sorted_lst
-
-
-def make_dataframe(animePath = anime_tsv_path()):
-    
-    tsv_data = pd.read_csv(animePath[0], sep = "\t") 
-    
-    for path in tqdm(animePath[1:]):
-        tsv_data = tsv_data.append(pd.read_csv(path, sep ="\t"), ignore_index=True)
-    
-    with open("./generic_datafile/urls_anime.txt", "r") as file:
-        lines = file.read().splitlines()
-        tsv_data['url'] = np.resize(lines,len(tsv_data))
-
-    tsv_data.to_csv("./generic_datafile/dataset.csv")
-        
-    return tsv_data
-
-def sha256(string):
-    return str(hashlib.sha256(string.encode()).hexdigest())
-
 def read_inverted_index(path = "./generic_datafile/inverted_index.txt"):
     
     dic = dict()
@@ -890,6 +882,90 @@ def read_inverted_index_tfidf_with_names(path = "./generic_datafile/inverted_ind
             dic[key] = values
 
     return dic
+
+
+def read_vocabulary_per_doc(path = "./generic_datafile/vocabulary_per_doc.txt"):
+    
+    voc = []
+
+    with open(path, "r") as file:
+        lines = file.read().splitlines()
+        for line in lines:
+            voc.append((line.split(":")[0], line.split(":")[1]))
+        
+
+    return voc
+
+def read_vocabulary_per_doc_with_names(path = "./generic_datafile/vocabulary_per_doc_with_names.txt"):
+    
+    voc = []
+
+    with open(path, "r") as file:
+        lines = file.read().splitlines()
+        for line in lines:
+            voc.append((line.split(":")[0], line.split(":")[1]))
+        
+
+    return voc
+
+def read_vocabulary(path = "./generic_datafile/vocabulary.txt"):
+    
+    voc = collections.OrderedDict()
+
+    with open(path, "r") as file:
+        lines = file.read().splitlines()
+        for line in lines:
+            voc[line.split(":")[0]] = 0.0
+            
+    return voc
+
+def read_synopsis():
+    with open('./generic_datafile/synopsis.plk', 'rb') as file:
+        out = pickle.load(file)
+    return out
+
+def read_synopsis_and_names():
+    with open('./generic_datafile/synopsis_and_names.plk', 'rb') as file:
+        out = pickle.load(file)
+    return out
+
+
+def read_doc(i, length):
+    
+    arr = np.zeros(length)
+    
+    with open(f"./generic_datafile/bags_of_words/doc_{int(i)}.txt") as file:
+        arr = np.array([ float(line.split(":")[1]) for line in file.read().splitlines()])
+    
+    return arr
+
+
+def read_processed_columns():
+    with open('./generic_datafile/names.plk', 'rb') as file:
+        names = pickle.load(file)
+        
+        
+    with open('./generic_datafile/types.plk', 'rb') as file:
+        types = pickle.load(file)
+        
+        
+    with open('./generic_datafile/popularity.plk', 'rb') as file:
+        popularity = pickle.load(file)
+        
+    return names, types, popularity
+
+
+
+"""
+============================================================================================================
+
+    vocabulary functions
+
+============================================================================================================
+
+"""
+
+
 
 #Parole si ripetono ma solo in documenti diversi
 def make_vocabulary_of_every_word_in_doc():
@@ -951,42 +1027,111 @@ def make_vocabulary():
             
 
 
-def read_vocabulary_per_doc(path = "./generic_datafile/vocabulary_per_doc.txt"):
-    
-    voc = []
 
-    with open(path, "r") as file:
-        lines = file.read().splitlines()
-        for line in lines:
-            voc.append((line.split(":")[0], line.split(":")[1]))
-        
 
-    return voc
+"""
+============================================================================================================
 
-def read_vocabulary_per_doc_with_names(path = "./generic_datafile/vocabulary_per_doc_with_names.txt"):
-    
-    voc = []
+    bags of words functions
 
-    with open(path, "r") as file:
-        lines = file.read().splitlines()
-        for line in lines:
-            voc.append((line.split(":")[0], line.split(":")[1]))
-        
+============================================================================================================
 
-    return voc
-
-def read_vocabulary(path = "./generic_datafile/vocabulary.txt"):
-    
-    voc = collections.OrderedDict()
-
-    with open(path, "r") as file:
-        lines = file.read().splitlines()
-        for line in lines:
-            voc[line.split(":")[0]] = 0.0
+"""
             
+    
+def make_bagOfWords():
+    data = pd.read_csv("./generic_datafile/dataset.csv", usecols=["Synopsis"])
+    synopsis = read_synopsis()
+    inverted_index_old = read_inverted_index()
+    vocabulary = read_vocabulary()
+    
+    for i, synops in tqdm(enumerate(data["Synopsis"].array)):
+        if(isinstance(synops,str) and synops != " "):
+            make_single_bagOfWord(vocabulary, i, synopsis, inverted_index_old)
+            
+            
+            
+def make_single_bagOfWord(vocabulary, doc_index, documents, inverted_index):
+    
+    bag = collections.OrderedDict()
+    
+    for word in vocabulary:
+        bag[word] = tfidf(word, doc_index, documents, inverted_index)[1]
+        
+    with open(f"./generic_datafile/bags_of_words/doc_{doc_index+1}.txt", "w") as file:
+        for word in bag:
+            file.write(word + ":" + str(bag[word]))
+            file.write("\n")
+
+            
+"""
+============================================================================================================
+
+    dataset functions
+
+============================================================================================================
+
+"""
+
+
+def make_dataframe(animePath = anime_tsv_path()):
+    
+    tsv_data = pd.read_csv(animePath[0], sep = "\t") 
+    
+    for path in tqdm(animePath[1:]):
+        tsv_data = tsv_data.append(pd.read_csv(path, sep ="\t"), ignore_index=True)
+    
+    with open("./generic_datafile/urls_anime.txt", "r") as file:
+        lines = file.read().splitlines()
+        tsv_data['url'] = np.resize(lines,len(tsv_data))
+
+    tsv_data.to_csv("./generic_datafile/dataset.csv")
+        
+    return tsv_data
+
+
+def preprocess_dataset_columns():
+    data = pd.read_csv("./generic_datafile/dataset.csv", usecols=["Name", "Popularity", "Type"])
+    
+    names_data = data["Name"].array
+    popularity_data = np.array(data["Popularity"].array)
+    type_data = data["Type"].array
+    
+    
+    names = collections.OrderedDict()
+    
+    for doc_index, w in tqdm(enumerate(names_data), desc = "names"):
+        names[doc_index+1] = f.preprocessing(w)
+        
+    with open("./generic_datafile/names.plk", 'wb') as file:  # Overwrites any existing file.
+        pickle.dump(names, file, pickle.HIGHEST_PROTOCOL)
+        
+    types = collections.OrderedDict()
+    
+    for doc_index, t in tqdm(enumerate(type_data), desc = "types"):
+        types[doc_index+1] = f.preprocessing(t)
+        
+    with open("./generic_datafile/types.plk", 'wb') as file:  # Overwrites any existing file.
+        pickle.dump(types, file, pickle.HIGHEST_PROTOCOL)
+        
+    popularity = collections.OrderedDict()
+    
+    for doc_index, p in tqdm(enumerate(popularity_data), desc = "popularity"):
+        popularity[doc_index+1] = p
+        
+    with open("./generic_datafile/popularity.plk", 'wb') as file:  # Overwrites any existing file.
+        pickle.dump(popularity, file, pickle.HIGHEST_PROTOCOL)
         
 
-    return voc
+"""
+============================================================================================================
+
+    list of words per document functions
+
+============================================================================================================
+
+"""
+
 
 def processed_synopsis():
     data = pd.read_csv("./generic_datafile/dataset.csv", usecols=["Synopsis"])
@@ -1030,141 +1175,116 @@ def processed_synopsis_and_names():
         pickle.dump(list_of_processed_synops_and_names, file, pickle.HIGHEST_PROTOCOL)
         
         
-        
-def read_synopsis():
-    with open('./generic_datafile/synopsis.plk', 'rb') as file:
-        out = pickle.load(file)
-    return out
 
-def read_synopsis_and_names():
-    with open('./generic_datafile/synopsis_and_names.plk', 'rb') as file:
-        out = pickle.load(file)
-    return out
+"""
+============================================================================================================
 
+    miscellaneous functions
 
-def make_bagOfWords():
-    data = pd.read_csv("./generic_datafile/dataset.csv", usecols=["Synopsis"])
-    synopsis = read_synopsis()
-    inverted_index_old = read_inverted_index()
-    vocabulary = read_vocabulary()
-    
-    for i, synops in tqdm(enumerate(data["Synopsis"].array)):
-        if(isinstance(synops,str) and synops != " "):
-            make_single_bagOfWord(vocabulary, i, synopsis, inverted_index_old)
-            
-            
-            
-def make_single_bagOfWord(vocabulary, doc_index, documents, inverted_index):
-    
-    bag = collections.OrderedDict()
-    
-    for word in vocabulary:
-        bag[word] = tfidf(word, doc_index, documents, inverted_index)[1]
-        
-    with open(f"./generic_datafile/bags_of_words/doc_{doc_index+1}.txt", "w") as file:
-        for word in bag:
-            file.write(word + ":" + str(bag[word]))
-            file.write("\n")
-            
-            
-            
+============================================================================================================
 
-def read_doc(i, length):
-    
-    arr = np.zeros(length)
-    
-    with open(f"./generic_datafile/bags_of_words/doc_{int(i)}.txt") as file:
-        arr = np.array([ float(line.split(":")[1]) for line in file.read().splitlines()])
-    
-    return arr
+"""
 
-
-def preprocess_dataset_columns():
-    data = pd.read_csv("./generic_datafile/dataset.csv", usecols=["Name", "Popularity", "Type"])
+def maxHeapfy(lst):
     
-    names_data = data["Name"].array
-    popularity_data = np.array(data["Popularity"].array)
-    type_data = data["Type"].array
+    negative_lst = []
     
+    for elem in lst:
+        negative_lst.append((-elem[0], elem[1]))
     
-    names = collections.OrderedDict()
+    heapq.heapify(negative_lst)
     
-    for doc_index, w in tqdm(enumerate(names_data), desc = "names"):
-        names[doc_index+1] = f.preprocessing(w)
-        
-    with open("./generic_datafile/names.plk", 'wb') as file:  # Overwrites any existing file.
-        pickle.dump(names, file, pickle.HIGHEST_PROTOCOL)
-        
-    types = collections.OrderedDict()
+    negative_lst = [heapq.heappop(negative_lst) for i in range(len(negative_lst))]
     
-    for doc_index, t in tqdm(enumerate(type_data), desc = "types"):
-        types[doc_index+1] = f.preprocessing(t)
-        
-    with open("./generic_datafile/types.plk", 'wb') as file:  # Overwrites any existing file.
-        pickle.dump(types, file, pickle.HIGHEST_PROTOCOL)
-        
-    popularity = collections.OrderedDict()
+    sorted_lst = []
     
-    for doc_index, p in tqdm(enumerate(popularity_data), desc = "popularity"):
-        popularity[doc_index+1] = p
+    for elem in negative_lst:
+        sorted_lst.append((abs(elem[0]), elem[1]))
+    
+    return sorted_lst
         
-    with open("./generic_datafile/popularity.plk", 'wb') as file:  # Overwrites any existing file.
-        pickle.dump(popularity, file, pickle.HIGHEST_PROTOCOL)
-        
-
-def read_processed_columns():
-    with open('./generic_datafile/names.plk', 'rb') as file:
-        names = pickle.load(file)
-        
-        
-    with open('./generic_datafile/types.plk', 'rb') as file:
-        types = pickle.load(file)
-        
-        
-    with open('./generic_datafile/popularity.plk', 'rb') as file:
-        popularity = pickle.load(file)
-        
-    return names, types, popularity
+def sha256(string):
+    return str(hashlib.sha256(string.encode()).hexdigest())
 
 
 def initialize_file_for_search_engine():
+    
+    
     print("Starting creating the tsv files...")
     write_all_anime_tsv()
     print("tsv files created")
+    
     print("Starting creating the database...")
     make_dataframe()
     print("database created")
+    
+    
     print("Starting creating the inverted index...")
     make_inverted_index()
     print("Inverted index created")
+    
+    
     print("Starting creating the inverted index with names...")
     make_inverted_index_with_names()
     print("Inverted index created")
+    
+    
     print("Starting creating the vocabolary of every word per document...")
     make_vocabulary_of_every_word_in_doc()
     print("Vocabolary created")
+    
+    
     print("Starting creating the vocabolary of every word per document with names...")
     make_vocabulary_of_every_word_in_doc_with_names()
     print("Vocabolary created")
+    
+    
     print("Starting created the list of tokenized synopsis...")
     processed_synopsis()
     print("Tokenized synipsis created")
+    
     print("Starting created the list of tokenized synopsis and names...")
     processed_synopsis_and_names()
     print("Tokenized synipsis created")
+    
+    
     print("Starting creating the vocabulary...")
     make_vocabulary()
     print("Vocabulary created")
+    
+    
     print("Starting creating the inverted index with TFIDF score...")
     make_inverted_index_tfidf()
     print("Inverted index created")
+    
+    
     print("Starting creating the inverted index with TFIDF score (with names)...")
     make_inverted_index_tfidf_with_names()
+    print("Inverted index created")
+    
+    
     print("Starting creating the bags of words...")
     make_bagOfWords()
     print("Bags of words created")
+    
+    
     print("Startng processing the dataset columns...")
     preprocess_dataset_columns()
     print("Columns processed")
     
+    
     print("All operation done.")
+    
+    
+
+        
+        
+            
+            
+            
+        
+        
+        
+        
+        
+        
